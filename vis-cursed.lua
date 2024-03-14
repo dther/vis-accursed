@@ -1,15 +1,15 @@
 -- TODO: try adding mouse support to vis 1.7
-require('blah')
+require('vis')
 
 -- activate mouse detection...
-blah.events.subscribe(blah.events.START, function ()
+vis.events.subscribe(vis.events.START, function ()
 	--io.write("\x1b[?1002h") -- just button presses
 	io.write("\x1b[?1003h") --report any mouse movement
 	--io.write("\x1b[?9h")
 	io.flush()
 end)
 
-blah.events.subscribe(blah.events.QUIT, function ()
+vis.events.subscribe(vis.events.QUIT, function ()
 	--io.write("\x2b[?1002l")
 	io.write("\x1b[?1003l")
 	--io.write("\x1b[?9l")
