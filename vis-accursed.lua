@@ -5,14 +5,12 @@ require('vis')
 vis.events.subscribe(vis.events.START, function ()
 	--io.write("\x1b[?1002h") -- just button presses
 	io.write("\x1b[?1003h") --report any mouse movement
-	--io.write("\x1b[?9h")
 	io.flush()
 end)
 
 vis.events.subscribe(vis.events.QUIT, function ()
 	--io.write("\x2b[?1002l")
 	io.write("\x1b[?1003l")
-	--io.write("\x1b[?9l")
 	io.flush()
 end)
 
@@ -182,11 +180,9 @@ function guess_from_viewport(mouse)
 	-- turn viewport into a list of lines
 	local viewport = {}
 	for line in raw:gmatch("[^\n]*\n") do
-		-- TODO: break lines that are greater than wc, accounting for tw and breakat
+		local brokenline = break_visual_line(win, line)
 
-		-- FIXME: tabstop behaviour is more complex than mere replacement. Needs modulo.
-		local brokenline = break_visual_lines(win, line)
-		for i = 0, #brokenline do
+		for i = 1, #brokenline do
 			table.insert(viewport, brokenline[i])
 		end
 	end
@@ -195,33 +191,66 @@ function guess_from_viewport(mouse)
 
 	--FIXME not done here. do calculations, somehow...
 	local bytesbeforeline = 0
-	for i = 1, mouse.line-1 do
-		-- FIXME special case: eof, where mouse.line > #viewport
+	for i = 1, mouse.line do
+		-- special case: eof, where mouse.line > #viewport
+		if (i > #viewport) then
+			break
+		end
 		bytesbeforeline = bytesbeforeline + #viewport[i]
 	end
 	--vis:info(bytesbeforeline)
 
 	vis:info(bytesbeforeline+mouse.col-1)
 	-- TODO: tabwidth adjustment
+
+	--FIXME debugging
+	return viewport
 end
 
--- Breaks "str", a single logical line, into how it would appear visually
+-- Breaks "str", a single logical line,
+-- into how it would appear visually
 -- as lines inside the viewport of "win". Returns a list of strings.
-function break_visual_lines(win, str)
-	local lines = {}
-	-- TODO
-	table.insert(lines, str)
-	return lines
-end
+function break_visual_line(win, str)
+	local view = {}
+	local wc = win.options.wrapcolumn
+	local tw = win.options.tabwidth
 
--- translates from bytes to logical lines (a work in progress...)
-local function file_bytes_to_lines(bytes)
+	if (wc == 0) then wc = win.width end
+
+	-- insert visual line substrings into "view"
+	local linestart = 1
+	local linechars = 0
+	for bytes = 1, #str do
+		local c = str:sub(bytes, bytes)
+		-- TODO account for tabs and multibyte characters...
+		if (c == "\t") then
+			-- remember from k&r- a tab, visually, takes up
+			-- tw - (linechars % tw) columns.
+			linechars = linechars + (tw - (linechars % tw))
+		else
+			linechars = linechars + 1
+		end
+
+		if (linechars > wc) then
+			-- that's a wrap
+			local substrlen = bytes - linestart;
+			table.insert(view, str:sub(linestart, substrlen))
+			linestart = bytes
+			linechars = 1
+		end
+	end
+
+	-- insert whatever's left
+	table.insert(view, str:sub(linestart))
+	return view
 end
 
 vis:command_register("test", function()
 	--vis:info(mouse.event.." ".. mouse.button.." ".. mouse.line.." ".. mouse.col)
-	vis:info(vis.win.width)
-	guess_from_viewport(mouse)
+	local viewport = guess_from_viewport(mouse)
+	for s = 1, #viewport do
+		vis:message(viewport[s]:gsub("\n", "\\n"))
+	end
 end)
 
 vis.events.subscribe(vis.events.MOUSE, update_mouse_state)
