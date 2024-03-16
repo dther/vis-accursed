@@ -191,7 +191,7 @@ function guess_from_viewport(mouse)
 
 	--FIXME not done here. do calculations, somehow...
 	local bytesbeforeline = 0
-	for i = 1, mouse.line do
+	for i = 1, mouse.line-1 do
 		-- special case: eof, where mouse.line > #viewport
 		if (i > #viewport) then
 			break
@@ -200,7 +200,7 @@ function guess_from_viewport(mouse)
 	end
 	--vis:info(bytesbeforeline)
 
-	vis:info(bytesbeforeline+mouse.col-1)
+	vis:info(bytesbeforeline)
 	-- TODO: tabwidth adjustment
 
 	--FIXME debugging
@@ -218,8 +218,10 @@ function break_visual_line(win, str)
 	if (wc == 0) then wc = win.width end
 
 	-- insert visual line substrings into "view"
+	-- FIXME lines that are broken into more than 2 still don't work
 	local linestart = 1
 	local linechars = 0
+	local linebytes = 0
 	for bytes = 1, #str do
 		local c = str:sub(bytes, bytes)
 		-- TODO account for tabs and multibyte characters...
@@ -227,16 +229,18 @@ function break_visual_line(win, str)
 			-- remember from k&r- a tab, visually, takes up
 			-- tw - (linechars % tw) columns.
 			linechars = linechars + (tw - (linechars % tw))
+			linebytes = linebytes + 1
 		else
 			linechars = linechars + 1
+			linebytes = linebytes + 1
 		end
 
 		if (linechars > wc) then
 			-- that's a wrap
-			local substrlen = bytes - linestart;
-			table.insert(view, str:sub(linestart, substrlen))
+			table.insert(view, str:sub(linestart, linebytes - 1))
 			linestart = bytes
-			linechars = 1
+			linechars = 0
+			linebytes = 0
 		end
 	end
 
