@@ -146,51 +146,15 @@ function guess_mouse_pos(mouse)
 		end
 	end
 
-	-- FIXME above code works just fine. this doesn't
-	-- TODO account for line wrap in columns
-	-- move to the column
-	local lineend = visible:find("\n", lastnewline+1)
+	-- FIXME re-implement column guessing...
 
-	-- special case, eof
-	if (lineend == nil) then
-		return win.viewport.finish
-	end
-
-	local linetext = visible:sub(linestart, lineend)
-
-	-- special case for eof
-	if (linetext == nil or lineend == nil) then return win.viewport.finish end
-
-	local guesscol = 0
-	local charsprinted = 0
-
-	-- TODO account for tabstops
-	for byte = 0, linetext:len() - 2 do
-		if (linetext:sub(byte, byte) == "\t") then
-			charsprinted = charsprinted + (tw - (charsprinted % tw))
-		else
-			charsprinted = charsprinted + 1
-		end
-
-		if (charsprinted >= mouse.col) then
-			guesscol = byte
-			break
-		end
-	end
-	if (guesscol < 0) then guesscol = 0 end
-
-	-- avoid running off end of line
-	if (guesscol > linetext:len()) then
-		guesscol = linetext:len()
-	end
-	--vis:info(lineend)
-
-	local guess = win.viewport.start + linestart + guesscol
-	--local guess = win.viewport.start + linestart
-	if (guess < 0) then guess = 0 end
+	local guess = win.viewport.start + linestart
+	if (guess < win.viewport.start) then guess = win.viewport.start end
+	if (guess > win.viewport.finish) then guess = win.viewport.finish end
 
 	return guess
 end
+
 vis.events.subscribe(vis.events.MOUSE, update_mouse_state)
 
 local evtest=0
