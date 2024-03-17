@@ -32,16 +32,23 @@ local BUTTON = {
 	WHEELDOWN = 5,
 }
 
--- Store the mouse state
+-- Store the current mouse state
 local mouse = {
 	event = EVENT.UNKNOWN,
 	button = BUTTON.NONE,
 	line = 1,
 	col = 1,
+	dragging = 0, -- button of in-progress dragging event
+	pressed = 0, -- number of buttons pressed
+	lastclick = {},
+	lastevent = {}
 }
 
--- store the previous state, for chording calculations
+-- store the previous state
 local lastmouse = mouse
+
+-- the last button that was clicked
+local lastclick = mouse
 
 function update_mouse_state(event, button, line, col)
 	lastmouse = mouse
@@ -50,14 +57,18 @@ function update_mouse_state(event, button, line, col)
 	mouse.button = button
 	mouse.line = line
 	mouse.col = col
+	mouse.pressed = lastmouse.pressed
+	mouse.dragging = lastmouse.dragging
 	-- TODO: actually do something with button presses
 	-- figure out double clicking, mouse chording and all that, too
 
 	-- low hanging fruit: scrolling and jumping!
 	if (button == BUTTON.WHEELUP) then
 		vis:feedkeys("<C-y>")
+		mouse.pressed = mouse.pressed + 1
 	elseif (button == BUTTON.WHEELDOWN) then
 		vis:feedkeys("<C-e>")
+		mouse.pressed = mouse.pressed + 1
 	elseif (event == EVENT.PRESSED) then
 		-- below works really well... On the first screenful, only.
 		-- Might be good for me to tinker with this some more later.
@@ -78,16 +89,22 @@ function update_mouse_state(event, button, line, col)
 
 		-- IT WORKS
 		vis.win.selection.pos = guess_mouse_pos(mouse)
+		mouse.pressed = mouse.pressed + 1
+		lastclick = mouse -- used to detect double clicks...?
 	elseif (event == EVENT.DRAGGED) then
 		-- TODO: The big one... Selections.
 		if (lastmouse.event == EVENT.PRESSED) then
 			-- we just started, anchor the selection and switch to visual mode
 			vis.mode = vis.modes.VISUAL
 			vis.win.selection.anchored = true
+			mouse.dragging = button
 		end
 		vis.win.selection.pos = guess_mouse_pos(mouse)
 	end
 
+	if (event == EVENT.RELEASED) then
+		mouse.pressed = mouse.pressed - 1
+	end
 end
 
 -- calculate the approximate closest file position to the cursor
