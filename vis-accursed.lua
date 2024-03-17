@@ -126,6 +126,8 @@ function guess_mouse_pos(mouse)
 	local lastnewline = 0 -- record the last newline found...
 	local charsprinted = 0 -- how many characters have been printed, visually
 
+	--vis:info(mouse.line..":"..mouse.col)
+
 	-- find where the current line starts
 	while (lineschecked < mouse.line
 		and linestart < visible:len()) do
@@ -146,9 +148,30 @@ function guess_mouse_pos(mouse)
 		end
 	end
 
-	-- FIXME re-implement column guessing...
+	-- Guess column
+	charsprinted = 0
+	local coloffset = 0 -- bytes
+	local remainingview
+	if (lineschecked == 1) then
+		remainingview = visible
+	else
+		remainingview = visible:sub(linestart + 1)
+	end
 
-	local guess = win.viewport.start + linestart
+	while (charsprinted < mouse.col and charsprinted < wc) do
+		coloffset = coloffset + 1
+		local currentchar = remainingview:sub(coloffset, coloffset)
+		if (currentchar == '\n') then
+			break
+		elseif (currentchar == '\t') then
+			charsprinted = charsprinted + (tw - (charsprinted % tw))
+		else
+			charsprinted = charsprinted + 1
+		end
+	end
+	coloffset = coloffset - 1
+
+	local guess = win.viewport.start + linestart + coloffset
 	if (guess < win.viewport.start) then guess = win.viewport.start end
 	if (guess > win.viewport.finish) then guess = win.viewport.finish end
 
