@@ -124,33 +124,36 @@ function guess_mouse_pos(mouse)
 	local lineschecked = 1
 	local linestart = 0 -- the first character of the line the cursor is on
 	local lastnewline = 0 -- record the last newline found...
-	
-	-- FIXME might be smart to split the viewport content by lines and
-	-- iterate over that- much more predictable.
+	local charsprinted = 0 -- how many characters have been printed, visually
 
-	-- TODO account for tabwidth affecting wrapcolumn
 	-- find where the current line starts
 	while (lineschecked < mouse.line
 		and linestart < visible:len()) do
 		linestart = linestart + 1
+		charsprinted = charsprinted + 1
+
+		-- adjust for tabstop
+		if (visible:sub(linestart, linestart) == '\t') then
+			charsprinted = charsprinted + (tw - (charsprinted % tw))
+		end
 
 		-- detect newlines/column wraps
 		if (visible:sub(linestart, linestart) == '\n'
-			or (linestart - lastnewline) >= wc) then
+			or (charsprinted) >= wc) then
 			lastnewline = linestart
 			lineschecked = lineschecked + 1
+			charsprinted = 0
 		end
 	end
 
+	-- FIXME above code works just fine. this doesn't
 	-- TODO account for line wrap in columns
 	-- move to the column
-	local lineend = visible:find("\n", linestart+1)
+	local lineend = visible:find("\n", lastnewline+1)
 
-	-- special cases. I'm off by 1 somewhere...
+	-- special case, eof
 	if (lineend == nil) then
 		return win.viewport.finish
-	elseif (lineschecked == 1) then
-		lineend = lineend + 1
 	end
 
 	local linetext = visible:sub(linestart, lineend)
@@ -158,23 +161,32 @@ function guess_mouse_pos(mouse)
 	-- special case for eof
 	if (linetext == nil or lineend == nil) then return win.viewport.finish end
 
-	local guesscol = mouse.col-1
+	local guesscol = 0
+	local charsprinted = 0
 
 	-- TODO account for tabstops
-	for c = 0, linetext:len() do
-		if (linetext:sub(c, c) == "\t") then
-			guesscol = guesscol - (tw-1)
+	for byte = 0, linetext:len() - 2 do
+		if (linetext:sub(byte, byte) == "\t") then
+			charsprinted = charsprinted + (tw - (charsprinted % tw))
+		else
+			charsprinted = charsprinted + 1
+		end
+
+		if (charsprinted >= mouse.col) then
+			guesscol = byte
+			break
 		end
 	end
 	if (guesscol < 0) then guesscol = 0 end
 
 	-- avoid running off end of line
-	if (guesscol > linetext:len() - 2) then
-		guesscol = linetext:len() - 2
+	if (guesscol > linetext:len()) then
+		guesscol = linetext:len()
 	end
 	--vis:info(lineend)
 
 	local guess = win.viewport.start + linestart + guesscol
+	--local guess = win.viewport.start + linestart
 	if (guess < 0) then guess = 0 end
 
 	return guess
