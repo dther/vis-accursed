@@ -76,49 +76,61 @@ function update_mouse_state(event, button, line, col)
 	-- TODO: actually do something with button presses
 	-- figure out double clicking, mouse chording and all that, too
 
-	-- low hanging fruit: scrolling and jumping!
-	if (button == BUTTON.WHEELUP) then
-		vis:feedkeys("<C-y>")
+	-- TODO emit more specific events for user friendly extension
+	if (event == EVENT.PRESSED) then
+		-- TODO detect special clicks using lastclick & lastmouse
+		-- a "double click" is defined as clicking the exact same position twice.
+		-- this is fine in terminals since "same space" is actually an entire character.
+		single_click(mouse)
 		mouse.pressed = mouse.pressed + 1
-	elseif (button == BUTTON.WHEELDOWN) then
-		vis:feedkeys("<C-e>")
-		mouse.pressed = mouse.pressed + 1
-	elseif (event == EVENT.PRESSED) then
-		-- below works really well... On the first screenful, only.
-		-- Might be good for me to tinker with this some more later.
-
-		-- IDEA: calculate the topmost line, which should be simple,
-		-- since the status bar shows it... Then add it to the coords
-		-- this should be easy to do using lua's string.gmatch? hmm
-
-		-- Feature request: some easy way of translating between abs.
-		-- file position and line/col.
-		--vis.win.selection:to(line, col)
-
-		-- clear existing selections and exit visual mode?
-		vis.mode = vis.modes.NORMAL
-		vis.win.selection.anchored = false
-		-- TODO delete non-primary selections
-		-- TODO special behaviour in INSERT mode- just jump
-
-		-- IT WORKS
-		vis.win.selection.pos = guess_mouse_pos(mouse)
-		mouse.pressed = mouse.pressed + 1
-		lastclick = mouse -- used to detect double clicks...?
 	elseif (event == EVENT.DRAGGED) then
-		-- TODO: The big one... Selections.
-		if (lastmouse.event == EVENT.PRESSED) then
-			-- we just started, anchor the selection and switch to visual mode
-			vis.mode = vis.modes.VISUAL
-			vis.win.selection.anchored = true
-			mouse.dragging = button
+		dragged(mouse)
+	elseif (event == EVENT.RELEASED) then
+		mouse.pressed = mouse.pressed - 1
+		if (mouse.pressed <= 0) then
+			-- no buttons are being pressed
+			mouse.pressed = 0
+			mouse.dragging = 0
 		end
-		vis.win.selection.pos = guess_mouse_pos(mouse)
+	end
+end
+
+-- TODO perform special double click actions
+function double_click(mouse)
+	-- TODO: double clicking, by default, selects the WORD under the cursor
+	-- If the cursor is on column 0, start a line selection
+	-- same if the cursor is on a newline
+end
+
+-- perform actions for single clicks
+function single_click(mouse)
+	-- wheel scrolling counts as a press, but shouldn't count as a "click"
+	if (mouse.button == BUTTON.WHEELUP) then
+		vis:feedkeys("<C-y>")
+		return
+	elseif (mouse.button == BUTTON.WHEELDOWN) then
+		vis:feedkeys("<C-e>")
+		return
 	end
 
-	if (event == EVENT.RELEASED) then
-		mouse.pressed = mouse.pressed - 1
+	vis.win.selection.pos = guess_mouse_pos(mouse)
+	vis.mode = vis.modes.NORMAL
+	vis.win.selection.anchored = false
+
+	-- record this click
+	lastclick = mouse
+end
+
+-- perform actions for when the mouse is moved with at least one button held down
+function dragged(mouse)
+	if (lastmouse.event == EVENT.PRESSED) then
+		-- just started dragging
+		vis.mode = vis.modes.VISUAL
+		vis.win.selection.anchored = true
 	end
+	mouse.dragging = button
+	vis.win.selection.pos = guess_mouse_pos(mouse)
+	-- TODO set system Primary selection to be the contents of vis.win.selection
 end
 
 -- calculate the approximate closest file position to the cursor
