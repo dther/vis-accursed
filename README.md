@@ -56,3 +56,11 @@ keyboard-driven visual editor running in a virtual Unix terminal!
 
 My end goal is to implement `acme` inspired mouse navigation and
 plumbing to external programs, including *basic* chording behaviour.
+
+## FEATURE TODO
+
+ - support multiple windows
+ - test on large files, disable if too slow
+ - adjust for window decoration
+ - clickable status bar, a la acme's tag bar
+ - primary selection integration
