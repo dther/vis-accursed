@@ -96,6 +96,10 @@ function update_mouse_state(event, button, line, col)
 		if (mouse.pressed <= 0) then
 			-- no buttons are being pressed
 			mouse.pressed = 0
+			-- TODO acme does stuff here based on the value of mouse.dragging
+			-- 1: nothing, 2: execute selection as vis or shell command
+			-- 3: identify and go to token under cursor
+			-- (e.g., switch to file, delete files launch URL browser...)
 			mouse.dragging = 0
 		end
 	end
@@ -142,12 +146,10 @@ end
 function dragged(mouse)
 	if (lastmouse.event == EVENT.PRESSED) then
 		-- just started dragging
-		if (not vis.mode == vis.modes.VISUAL
-			or not vis.mode == vis.modes.VISUAL_LINE) then
-			vis.mode = vis.modes.VISUAL
-		end
 		vis.win.selection.anchored = true
 	end
+	-- TODO: decide if this should preserve VISUAL LINE
+	vis.mode = vis.modes.VISUAL
 	mouse.dragging = button
 	vis.win.selection.pos = guess_mouse_pos(mouse)
 	-- TODO set system Primary selection to be the contents of vis.win.selection
