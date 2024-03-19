@@ -79,9 +79,15 @@ function update_mouse_state(event, button, line, col)
 	-- TODO emit more specific events for user friendly extension
 	if (event == EVENT.PRESSED) then
 		-- TODO detect special clicks using lastclick & lastmouse
-		-- a "double click" is defined as clicking the exact same position twice.
+		-- a "double click" is defined as clicking the exact same screen space twice.
 		-- this is fine in terminals since "same space" is actually an entire character.
-		single_click(mouse)
+		if (lastclick.button == button
+			and lastclick.col == col
+			and lastclick.line == line) then
+			double_click(mouse)
+		else
+			single_click(mouse)
+		end
 		mouse.pressed = mouse.pressed + 1
 	elseif (event == EVENT.DRAGGED) then
 		dragged(mouse)
@@ -97,14 +103,25 @@ end
 
 -- TODO perform special double click actions
 function double_click(mouse)
-	-- TODO: double clicking, by default, selects the WORD under the cursor
-	-- If the cursor is on column 0, start a line selection
+	-- double clicking, by default, selects the WORD under the cursor
+	-- If the cursor is on column 1, start a line selection
 	-- same if the cursor is on a newline
+	local win = vis.win
+	local guessedpos = guess_mouse_pos(mouse)
+	local charatpos = win.file:content(guessedpos, 1)
+	if (mouse.col == 1 or charatpos == "\n") then
+		win.selection.pos = guessedpos
+		vis.mode = vis.modes.VISUAL_LINE
+	else
+		vis.mode = vis.modes.VISUAL
+		win.selection.range = win.file:text_object_longword(guessedpos)
+	end
+	lastclick = mouse
 end
 
 -- perform actions for single clicks
 function single_click(mouse)
-	-- wheel scrolling counts as a press, but shouldn't count as a "click"
+	-- wheel scrolling counts as a press, but shouldn't register as a "click"
 	if (mouse.button == BUTTON.WHEELUP) then
 		vis:feedkeys("<C-y>")
 		return
@@ -125,12 +142,16 @@ end
 function dragged(mouse)
 	if (lastmouse.event == EVENT.PRESSED) then
 		-- just started dragging
-		vis.mode = vis.modes.VISUAL
+		if (not vis.mode == vis.modes.VISUAL
+			or not vis.mode == vis.modes.VISUAL_LINE) then
+			vis.mode = vis.modes.VISUAL
+		end
 		vis.win.selection.anchored = true
 	end
 	mouse.dragging = button
 	vis.win.selection.pos = guess_mouse_pos(mouse)
 	-- TODO set system Primary selection to be the contents of vis.win.selection
+	-- TODO make sure VISUAL LINE is being handled correctly...
 end
 
 -- calculate the approximate closest file position to the cursor
