@@ -1,11 +1,27 @@
 -- TODO: try adding mouse support to vis 1.7
 require('vis')
 
+local accursed = {}
+accursed.options = {
+	mouse = true
+}
+
+vis:option_register("mouse", "bool", function(value, toggle)
+	accursed.options.mouse = toggle and not accursed.options.mouse or value
+	io.write("\x1b[?1003l")
+	if (accursed.options.mouse) then
+		io.write("\x1b[?1003h")
+	end
+	io.flush()
+end, "Enable tracking mouse events")
+
 -- activate mouse detection...
 vis.events.subscribe(vis.events.START, function ()
-	--io.write("\x1b[?1002h") -- just button presses
-	io.write("\x1b[?1003h") --report any mouse movement
-	io.flush()
+	if (accursed.options.mouse) then
+		--io.write("\x1b[?1002h") -- just button presses
+		io.write("\x1b[?1003h") --report any mouse movement
+		io.flush()
+	end
 end)
 
 vis.events.subscribe(vis.events.QUIT, function ()
@@ -40,8 +56,6 @@ local mouse = {
 	col = 1,
 	dragging = 0, -- button of in-progress dragging event
 	pressed = 0, -- number of buttons pressed
-	lastclick = {},
-	lastevent = {}
 }
 
 -- store the previous state
@@ -192,3 +206,5 @@ vis.events.subscribe(vis.events.WIN_HIGHLIGHT, function()
 	--evtest = evtest + 1
 	--vis:info(evtest)
 end)
+
+return accursed
