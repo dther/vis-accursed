@@ -88,25 +88,33 @@ function update_mouse_state(event, button, line, col)
 		else
 			single_click(mouse)
 		end
-		mouse.pressed = mouse.pressed + 1
 	elseif (event == EVENT.DRAGGED) then
+		if (mouse.pressed < 1) then
+			mouse.pressed = 1
+		end
 		dragged(mouse)
-	elseif (event == EVENT.RELEASED) then
+	elseif (event == EVENT.RELEASE) then
+		-- FIXME: discovered that EVENT.DRAGGED doesn't persist after a click while dragging.
+		-- Darn... Going to need to add extra dragging logic here to make chords work.
+		-- oh wait after testing out acme it seems this is how acme acts too, anyway
+		-- dragging ends after any button is pressed
 		mouse.pressed = mouse.pressed - 1
 		if (mouse.pressed <= 0) then
 			-- no buttons are being pressed
 			mouse.pressed = 0
 			-- TODO acme does stuff here based on the value of mouse.dragging
-			-- 1: nothing, 2: execute selection as vis or shell command
-			-- 3: identify and go to token under cursor
-			-- (e.g., switch to file, delete files launch URL browser...)
+			-- 1: yank to primary selection
+			-- 2: execute selection as vis or shell command
+			-- 3: identify token and attempt navigation
+			-- (e.g., switch to file, search next instance, launch URL browser...)
 			mouse.dragging = 0
 		end
 	end
 end
 
--- TODO perform special double click actions
+-- perform special double click actions
 function double_click(mouse)
+	if (mouse.button == BUTTON.WHEELUP or mouse.button == BUTTON.WHEELDOWN) then return end
 	-- double clicking, by default, selects the WORD under the cursor
 	-- If the cursor is on column 1, start a line selection
 	-- same if the cursor is on a newline
@@ -121,11 +129,16 @@ function double_click(mouse)
 		win.selection.range = win.file:text_object_longword(guessedpos)
 	end
 	lastclick = mouse
+	mouse.pressed = mouse.pressed + 1
+end
+
+-- TODO mouse chording!!!!
+function mouse_chord(mouse)
 end
 
 -- perform actions for single clicks
 function single_click(mouse)
-	-- wheel scrolling counts as a press, but shouldn't register as a "click"
+	-- wheel motions don't create release events
 	if (mouse.button == BUTTON.WHEELUP) then
 		vis:feedkeys("<C-y>")
 		return
