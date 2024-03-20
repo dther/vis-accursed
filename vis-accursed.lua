@@ -94,13 +94,9 @@ function update_mouse_state(event, button, line, col)
 		end
 		dragged(mouse)
 	elseif (event == EVENT.RELEASE) then
-		-- FIXME: discovered that EVENT.DRAGGED doesn't persist after a click while dragging.
-		-- Darn... Going to need to add extra dragging logic here to make chords work.
-		-- oh wait after testing out acme it seems this is how acme acts too, anyway
-		-- dragging ends after any button is pressed
 		mouse.pressed = mouse.pressed - 1
 		if (mouse.pressed <= 0) then
-			-- no buttons are being pressed
+			-- no buttons are being pressed, chording has ended
 			mouse.pressed = 0
 			-- TODO acme does stuff here based on the value of mouse.dragging
 			-- 1: yank to primary selection
@@ -134,11 +130,13 @@ end
 
 -- TODO mouse chording!!!!
 function mouse_chord(mouse)
+	if (mouse.button == BUTTON.WHEELUP or mouse.button == BUTTON.WHEELDOWN) then return end
+	mouse.pressed = mouse.pressed + 1
 end
 
 -- perform actions for single clicks
 function single_click(mouse)
-	-- wheel motions don't create release events
+	-- wheel motions don't create release events and aren't clicks
 	if (mouse.button == BUTTON.WHEELUP) then
 		vis:feedkeys("<C-y>")
 		return
@@ -147,26 +145,49 @@ function single_click(mouse)
 		return
 	end
 
-	vis.win.selection.pos = guess_mouse_pos(mouse)
-	vis.mode = vis.modes.NORMAL
-	vis.win.selection.anchored = false
+	local gpos = guess_mouse_pos(mouse)
+	local currange = vis.win.selection.range
+
+	-- remove anchor and enter normal if click outside the original selection
+	if (gpos < currange.start or gpos > currange.finish) then
+		vis.win.selection.anchored = false
+		vis.mode = vis.modes.NORMAL
+	end
+
+	vis.win.selection.pos = gpos
 
 	-- record this click
 	lastclick = mouse
+	mouse.pressed = mouse.pressed + 1
 end
 
 -- perform actions for when the mouse is moved with at least one button held down
 function dragged(mouse)
-	if (lastmouse.event == EVENT.PRESSED) then
+	--if (lastmouse.event == EVENT.PRESSED) then
+	if (vis.win.selection.anchored == false) then
 		-- just started dragging
 		vis.win.selection.anchored = true
 	end
-	-- TODO: decide if this should preserve VISUAL LINE
-	vis.mode = vis.modes.VISUAL
-	mouse.dragging = button
+	-- preserve VISUAL LINE
+	if (vis.mode ~= vis.modes.VISUAL and vis.mode ~= vis.modes.VISUAL_LINE) then
+		vis.mode = vis.modes.VISUAL
+	end
+	mouse.dragging = mouse.button
 	vis.win.selection.pos = guess_mouse_pos(mouse)
-	-- TODO set system Primary selection to be the contents of vis.win.selection
-	-- TODO make sure VISUAL LINE is being handled correctly...
+	-- TODO make sure VISUAL LINE continues to select entire lines
+	if (vis.mode == vis.modes.VISUAL_LINE) then
+		vis:feedkeys('0$')
+	end
+
+	-- set system Primary selection to be the contents of vis.win.selection
+if (0) then
+	if (mouse.button == 1) then
+		vis:pipe(vis.win.file, vis.win.selection.range,
+			'vis-clipboard --selection primary --copy')
+	end
+end
+	-- FIXME makes the window jitter since, y'know, it's a blocking command.
+	-- Might be better to only trigger this on mouse release when dragging = 1.
 end
 
 -- calculate the approximate closest file position to the cursor
@@ -187,8 +208,6 @@ function guess_mouse_pos(mouse)
 	local linestart = 0 -- the first character of the line the cursor is on
 	local lastnewline = 0 -- record the last newline found...
 	local charsprinted = 0 -- how many characters have been printed, visually
-
-	--vis:info(mouse.line..":"..mouse.col)
 
 	-- find where the current line starts
 	while (lineschecked < mouse.line
