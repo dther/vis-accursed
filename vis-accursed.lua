@@ -180,7 +180,7 @@ function dragged(mouse)
 	end
 
 	-- set system Primary selection to be the contents of vis.win.selection
-if (0) then
+if (false) then
 	if (mouse.button == 1) then
 		vis:pipe(vis.win.file, vis.win.selection.range,
 			'vis-clipboard --selection primary --copy')
