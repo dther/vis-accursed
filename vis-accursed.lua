@@ -150,8 +150,8 @@ end
 -- TODO mouse chording!!!!
 function mouse_chord(mouse)
 	if (mouse.button == BUTTON.WHEELUP or mouse.button == BUTTON.WHEELDOWN) then return end
-	if (mouse.dragged ~= 0) then
-		mouse.chorded = mouse.dragged
+	if (mouse.dragging ~= 0) then
+		mouse.chorded = mouse.dragging
 	else
 		mouse.chorded = lastclick.button
 	end
