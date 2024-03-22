@@ -3,7 +3,10 @@ require('vis')
 
 local accursed = {}
 accursed.options = {
-	mouse = true
+	mouse = true,
+	acmeget = 2, -- middle click,
+	acmeexecute = 3, -- right click
+	acmeselect = 1, -- left click
 }
 
 vis:option_register("mouse", "bool", function(value, toggle)
@@ -14,6 +17,18 @@ vis:option_register("mouse", "bool", function(value, toggle)
 	end
 	io.flush()
 end, "Enable tracking mouse events")
+
+vis:option_register("acmeget", "number", function(value)
+	accursed.options.acmeget = value
+end, "Mouse button used for 'getting' (opening files/searching for text)")
+
+vis:option_register("acmeexecute", "number", function(value)
+	accursed.options.acmeexecute = value
+end, "Mouse button used for 'executing' (run commands)")
+
+vis:option_register("acmeselect", "number", function(value)
+	accursed.options.acmeselect = value
+end, "Mouse button used for 'selecting' (visual select & set primary selection)")
 
 -- activate mouse detection...
 vis.events.subscribe(vis.events.START, function ()
@@ -56,6 +71,7 @@ local mouse = {
 	col = 1,
 	dragging = 0, -- button of in-progress dragging event
 	pressed = 0, -- number of buttons pressed
+	chorded = 0, -- non-zero if another button was held down during click
 }
 
 -- store the previous state
@@ -73,6 +89,7 @@ function update_mouse_state(event, button, line, col)
 	mouse.col = col
 	mouse.pressed = lastmouse.pressed
 	mouse.dragging = lastmouse.dragging
+	mouse.chorded = lastmouse.chorded
 	-- TODO: actually do something with button presses
 	-- figure out double clicking, mouse chording and all that, too
 
@@ -85,6 +102,8 @@ function update_mouse_state(event, button, line, col)
 			and lastclick.col == col
 			and lastclick.line == line) then
 			double_click(mouse)
+		elseif (mouse.dragging ~= 0 or mouse.pressed < 0) then
+			mouse_chord(mouse)
 		else
 			single_click(mouse)
 		end
@@ -131,6 +150,11 @@ end
 -- TODO mouse chording!!!!
 function mouse_chord(mouse)
 	if (mouse.button == BUTTON.WHEELUP or mouse.button == BUTTON.WHEELDOWN) then return end
+	if (mouse.dragged ~= 0) then
+		mouse.chorded = mouse.dragged
+	else
+		mouse.chorded = lastclick.button
+	end
 	mouse.pressed = mouse.pressed + 1
 end
 
@@ -174,20 +198,32 @@ function dragged(mouse)
 	end
 	mouse.dragging = mouse.button
 	vis.win.selection.pos = guess_mouse_pos(mouse)
-	-- TODO make sure VISUAL LINE continues to select entire lines
+	-- make sure VISUAL LINE continues to select entire lines
 	if (vis.mode == vis.modes.VISUAL_LINE) then
 		vis:feedkeys('0$')
 	end
 
 	-- set system Primary selection to be the contents of vis.win.selection
 if (false) then
-	if (mouse.button == 1) then
+	if (mouse.button == accursed.acmeselect) then
 		vis:pipe(vis.win.file, vis.win.selection.range,
 			'vis-clipboard --selection primary --copy')
 	end
 end
 	-- FIXME makes the window jitter since, y'know, it's a blocking command.
 	-- Might be better to only trigger this on mouse release when dragging = 1.
+end
+
+-- perform actions on mouse release
+-- i.e.: call vis-clipboard if mouse.dragging = BUTTON.LEFT
+function mouse_release(mouse)
+	-- TODO agh i have to do all the special acme behaviour here
+	local action = mouse.lastclick.button
+	if (mouse.dragging ~= 0) then
+		action = mouse.dragging
+	else
+		action = mouse.lastclick.button
+	end
 end
 
 -- calculate the approximate closest file position to the cursor
