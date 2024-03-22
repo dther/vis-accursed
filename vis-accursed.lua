@@ -297,17 +297,15 @@ end
 
 vis.events.subscribe(vis.events.MOUSE, update_mouse_state)
 
-local evtest=0
 vis.events.subscribe(vis.events.WIN_HIGHLIGHT, function()
 	if (not vis.win) then return end
-	-- draw test cursor
-	local style = vis.win.STYLE_SELECTION -- use a default for now
+	-- draw ghost cursor
+	if (vis.win.STYLE_MOUSE_CURSOR == nil) then
+		vis.win.STYLE_MOUSE_CURSOR = vis.win.STYLE_SELECTION
+	end
+	local style = vis.win.STYLE_MOUSE_CURSOR
 	local guess = guess_mouse_pos(mouse)
 	vis.win:style(style, guess, guess)
-	
-	--debug
-	--evtest = evtest + 1
-	--vis:info(evtest)
 end)
 
 return accursed
