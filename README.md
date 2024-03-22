@@ -57,6 +57,22 @@ keyboard-driven visual editor running in a virtual Unix terminal!
 My end goal is to implement `acme` inspired mouse navigation and
 plumbing to external programs, including *basic* chording behaviour.
 
+## DIFFERENCES FROM ACME
+
+ - Acme is designed around Plan 9's three button mouse, with the middle button being used to
+   execute commands and the right button being used to open files and search for text.
+   Middle and right are also used for copying and pasting, respectively.
+   **vis-accursed reverses this.** It uses the right click to execute commands and the mouse wheel to open files.
+   - Rationale: the modern mouse wheel literally didn't exist at the time of
+     Acme's conception. It only became available to the consumer market in 1995,
+     and didn't become part of the standard Windows desktop computer in 1996,
+     **almost two years after Acme's public release in 1994.**
+   - Since then, the mouse wheel is now not only ubiquitous, but closely tied with
+     "movement" in common design UI. On browsers, it opens tabs,
+     and on X11, it pastes the primary selection.
+     In other words, moving and pasting- what Acme uses right-click for.
+   - Secondly: "right click performs special actions" is now also ubiquitous.
+
 ## Why?
 why not
 
@@ -106,6 +122,12 @@ we'd be in a very different computer ecosystem indeed.
  - clickable status bar, a la acme's tag bar
  - primary selection integration
  - "Minimal" version that removes all the weird acme fluff
+ - xdotool mouse warping? (this is going to be WACKY)
+   - it would be easier to patch st than implement this.
+   (Add a special signal to warp the mouse cursor to the terminal cursor.)
+     - NOTE: terminal cursor requires PR #953, hasn't been merged. help out?
+   - Low priority, all things considered.
+   Mouse warping tends to be distracting at the best of times.
 
 [oz:wily:idioms]: http://www.cs.yorku.ca/~oz/wily/idioms.html
 [martanne/vis]: https://github.com/martanne/vis
