@@ -59,27 +59,29 @@ mouse.events = events
 
 vis:option_register("mouse", "bool", function(value, toggle)
 	mouse.options.mouse = toggle and not mouse.options.mouse or value
-	io.write("\x1b[?1003l")
+	mouse.deactivate()
 	if (mouse.options.mouse) then
-		io.write("\x1b[?1003h")
+		mouse.activate()
 	end
-	io.flush()
 end, "Enable tracking mouse events")
 
--- activate mouse detection...
-vis.events.subscribe(vis.events.START, function ()
-	if (mouse.options.mouse) then
-		--io.write("\x1b[?1002h") -- just button presses
-		io.write("\x1b[?1003h") --report any mouse movement
-		io.flush()
-	end
-end)
-
-vis.events.subscribe(vis.events.QUIT, function ()
-	--io.write("\x2b[?1002l")
-	io.write("\x1b[?1003l")
+-- activate mouse detection
+function mouse.activate()
+	io.write("\x1b[?1003h") --report any mouse movement
+	io.write("\x1b[?1006h") --report button release
 	io.flush()
-end)
+end
+
+vis.events.subscribe(vis.events.START, mouse.activate)
+
+-- deactivate mouse detection
+function mouse.deactivate()
+	io.write("\x1b[?1003l")
+	io.write("\x1b[?1006l")
+	io.flush()
+end
+
+vis.events.subscribe(vis.events.QUIT, mouse.deactivate)
 
 -- set mouse.state appropriately and emit vis events for common operations
 function update_mouse_state(event, button, line, col)
