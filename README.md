@@ -49,6 +49,8 @@ functions! These include:
  - Entering VISUAL mode and creating a selection
  - Scroll wheel integration
  - Assigning special behaviour to double-clicks and simple mouse chording
+ - Tmux integration! Just put `:set mouse on` in your tmux.conf!
+   - ... And patch in/wait patiently for tmux/tmux#3919 for chording to work.
 
 In other words: Just about any mouse function you'd want from a
 keyboard-driven visual editor running in a virtual Unix terminal!
