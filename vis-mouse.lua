@@ -36,8 +36,7 @@ state.current = {
 	line = 1,
 	col = 1,
 	dragging = 0, -- button of in-progress dragging event
-	pressed = 0, -- number of buttons pressed
-	chorded = 0, -- non-zero if another button was held down during click
+	chordbase = 0, -- the first button clicked in a chord event
 }
 
 -- store the immediately previous state
@@ -45,6 +44,13 @@ state.last = state.current
 
 -- the last button that was clicked
 state.lastclick = state.current
+
+-- Maintained map of currently pressed buttons
+state.pressed = {
+	[BUTTON.LEFT] = false,
+	[BUTTON.MIDDLE] = false,
+	[BUTTON.RIGHT] = false,
+}
 
 -- Custom events
 local events = {
@@ -91,55 +97,49 @@ function update_mouse_state(event, button, line, col)
 	state.current.button = button
 	state.current.line = line
 	state.current.col = col
-	state.current.pressed = state.last.pressed
 	state.current.dragging = state.last.dragging
-	state.current.chorded = state.last.chorded
+	state.current.chordbase = state.last.chordbase
 
 	if (event == MOUSE_EVENT.PRESSED) then
 		-- wheel movements don't produce release events
-		vis:info(state.current.pressed)
-		if (button ~= BUTTON.WHEELUP and button ~= BUTTON.WHEELDOWN) then
-			state.current.pressed = state.current.pressed + 1
+		if (button ~= BUTTON.WHEELUP
+			and button ~= BUTTON.WHEELDOWN) then
+			state.pressed[button] = true
+			if (state.current.chordbase == 0) then
+				state.current.chordbase = button
+			end
 		end
 
 		if (state.lastclick.button == button
 			and state.lastclick.col == col
 			and state.lastclick.line == line) then
 			vis.events.emit(events.DOUBLE_CLICK, state)
-		elseif (state.current.dragging ~= 0 or state.current.pressed > 1) then
-			if (state.current.chorded == 0) then
-				-- remember the other button,
-				-- since it'll be erased on release
-				state.current.chorded = state.lastclick.button
-			end
+		elseif (state.current.chordbase ~= button
+			and button ~= BUTTON.WHEELUP
+			and button ~= BUTTON.WHEELDOWN) then
 			vis.events.emit(events.CHORD_PRESS, state)
 		else
 			vis.events.emit(events.PRESS, state)
 		end
 
 		-- After executing appropriate action
-		if (button ~= BUTTON.WHEELUP and button ~= BUTTON.WHEELDOWN) then
+		if (button ~= BUTTON.WHEELUP
+			and button ~= BUTTON.WHEELDOWN) then
 			state.lastclick = state.current
 		end
 	elseif (event == MOUSE_EVENT.DRAGGED) then
-		-- you can't drag with two buttons anyway
-		if (state.current.pressed < 1) then
-			state.current.pressed = 1
-		end
+		state.current.dragging = button
 		vis.events.emit(events.DRAG, state)
 	elseif (event == MOUSE_EVENT.RELEASED) then
-		state.current.pressed = state.current.pressed - 1
-		if (state.current.pressed > 0) then
-			-- the button stored in state.lastclick was released,
-			-- but at least one button is still being pressed
+		state.pressed[button] = false
+		if (button ~= state.current.chordbase) then
 			vis.events.emit(events.CHORD_RELEASE, state)
-		elseif (state.current.pressed <= 0) then
-			-- no buttons are being pressed, chording (if any) has ended
-			state.current.pressed = 0
-			state.current.dragging = 0
-			state.current.chorded = 0
-			-- NOTE: this event is also emitted whenever the mouse is moved...
+		else
 			vis.events.emit(events.RELEASE, state)
+			state.current.chordbase = 0
+		end
+		if (button == state.current.dragging) then
+			state.current.dragging = 0
 		end
 	end
 end
@@ -212,7 +212,6 @@ function mouse.dragged(state)
 	if (vis.mode ~= vis.modes.VISUAL and vis.mode ~= vis.modes.VISUAL_LINE) then
 		vis.mode = vis.modes.VISUAL
 	end
-	state.current.dragging = state.current.button
 	vis.win.selection.pos = guess_mouse_pos(state.current)
 	-- make sure VISUAL LINE continues to select entire lines
 	if (vis.mode == vis.modes.VISUAL_LINE) then
@@ -224,18 +223,11 @@ end
 -- i.e.: call vis-clipboard if mouse.dragging = BUTTON.LEFT
 function mouse.release(state)
 	-- just movement, do nothing
-	if (state.last.pressed == 0) then return end
+	if (state.current.button == 0) then return end
 
-	local action = state.lastclick.button
+	local action = state.current.chordbase
 	local selection = vis.win.selection
 	local file = vis.win.file
-	if (state.last.dragging ~= 0) then
-		-- end of a drag
-		action = state.last.dragging
-	elseif (state.last.chorded ~= 0) then
-		-- end of a chord
-		action = state.last.chorded
-	end
 
 	if (action == BUTTON.LEFT and selection.anchored) then
 		vis:pipe(file, selection.range, "vis-clipboard --copy --selection primary")
@@ -244,34 +236,49 @@ end
 
 -- a button that was pressed while another was held down has been released
 function mouse.chord_release(state)
-	local chordbase = state.current.chorded
+	local chordbase = state.current.chordbase
 	local button = state.lastclick.button
 	local selection = vis.win.selection
 	local file = vis.win.file
 
-	-- TODO need to test these...
 	-- FIXME cursor moves around in an unexpected fashion
 	if (selection.anchored
 		and chordbase == BUTTON.LEFT
 		and button == BUTTON.RIGHT) then
 		-- cut
 		vis:pipe(file, selection.range, "vis-clipboard --copy")
-		--[[ Bah... Haven't gotten this to work right.
+		--[[
+		-- FIXME Bah... Haven't gotten this to work right.
 		local newpos = selection.pos - (selection.range.finish - selection.range.start) + 1
 		file:delete(selection.range)
 		selection.pos = newpos
 		selection.anchored = false
 		--]]
-		vis:feedkeys("d")
+		--vis:feedkeys("d")
+		vis:info("Selection copied to clipboard")
 	elseif (chordbase == BUTTON.LEFT and button == BUTTON.MIDDLE) then
 		-- paste (insert if not anchored)
 		local _, paste = vis:pipe("vis-clipboard --paste")
-		if (selection.anchored) then
+		--[[if (selection.anchored) then
 			vis:replace(paste)
 		else
 			vis:insert(paste)
 		end
-		vis:info("paste")
+		]]
+		local oldpos = selection.pos
+		vis:insert(paste)
+		local newpos = selection.pos
+		-- select the pasted text
+		-- XXX: Is there a way to specify cursor anchor...?
+		-- It's odd that there isn't.
+		-- apparently Selection.range works...
+		if (oldpos ~= nil and newpos ~= nil) then
+			selection.pos = oldpos
+			selection.anchored = true
+			selection.pos = newpos
+		end
+
+		vis:info("Clipboard inserted")
 	end
 end
 
