@@ -278,6 +278,7 @@ function mouse.chord_release(state)
 			selection.pos = newpos
 		end
 
+		vis.mode = vis.modes.VISUAL
 		vis:info("Clipboard inserted")
 	end
 end
