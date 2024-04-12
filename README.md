@@ -118,18 +118,18 @@ we'd be in a very different computer ecosystem indeed.
 
 ## FEATURE TODO
 
- - support multiple windows (important)
+ - support multiple windows? (eh, don't bother- might be easier to do this on vis' C side)
  - test on large files, disable if too slow
  - adjust for window decoration
- - clickable status bar, a la acme's tag bar
+ - clickable status bar, a la acme's tag bar or tmux's default mouse mode
  - primary selection integration
- - "Minimal" version that removes all the weird acme fluff
  - xdotool mouse warping? (this is going to be WACKY)
    - it would be easier to patch st than implement this.
    (Add a special signal to warp the mouse cursor to the terminal cursor.)
      - NOTE: terminal cursor requires PR #953, hasn't been merged. help out?
    - Low priority, all things considered.
    Mouse warping tends to be distracting at the best of times.
+   - actually- mouse warping makes me want to hurl. Scroll the entire viewport instead!!!
 
 [oz:wily:idioms]: http://www.cs.yorku.ca/~oz/wily/idioms.html
 [martanne/vis]: https://github.com/martanne/vis
